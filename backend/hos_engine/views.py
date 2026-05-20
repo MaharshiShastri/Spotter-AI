@@ -232,7 +232,7 @@ def groq_rag_chat(request):
                         total_sleep_mins += seg.get('duration_mins', 0)
             db_context_string += f"   -> Logged Sleep Record for this Itinerary: {round(total_sleep_mins / 60, 1)} hours spent in SLEEPER_BERTH.\n"
 
-    client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
+    client = Groq(api_key=os.environ.get("GROQ_API_KEY")
     try:
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
