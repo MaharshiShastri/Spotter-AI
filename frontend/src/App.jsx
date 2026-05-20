@@ -53,7 +53,7 @@ export default function App() {
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef(null);
 
-  const API_BASE_URL = "https://spotter-ai-48kk.onrender.com" || 'http://127.0.0.1:8000';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
   
   const fetchHistory = async () => {
     try {
