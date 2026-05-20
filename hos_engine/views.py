@@ -97,7 +97,7 @@ def calculate_trip_api(request):
     day_counter = 1
     
     # Adding randomized variation offsets onto the timeline logs 
-    route_hash_mod = sum(ord(c) for c in pickup_loc + dropoff_loc) % 3 if (pickup_loc and dropoff_loc) else 0
+    route_hash_mod = (sum(ord(c) for c in route_string) * 7) % 5 if route_string else 0
     
     while remaining_driving_hours > 0:
         day_key = f"Day {day_counter}"
@@ -105,7 +105,7 @@ def calculate_trip_api(request):
         remaining_driving_hours = round(remaining_driving_hours - day_driving_this_shift, 1)
         
         # FIX: Explicitly calculated here so BOTH conditional branches can access them safely!
-        base_start = 6 + route_hash_mod
+        base_start = 5 + route_hash_mod
         start_str = f"0{base_start}:00" if base_start < 10 else f"{base_start}:00"
         driving_start_str = f"0{base_start+1}:00" if (base_start+1) < 10 else f"{base_start+1}:00"
         
@@ -191,22 +191,30 @@ def log_manual_status(request):
                 current_timeline = dict(trip.timeline_data)
                 days = list(current_timeline.keys())
                 target_day = days[-1] if days else "Day 1"
+                
                 if target_day not in current_timeline:
                     current_timeline[target_day] = []
                 
+                # Append manual logs safely 
                 current_timeline[target_day].append({
                     "status": status_type,
                     "start": "14:15",
                     "duration_mins": 30,
                     "remark": f"[In-Cab Update] {remark}"
                 })
+                
+                # FIX: Sort the log array by time string so the chart line remains continuous!
+                current_timeline[target_day] = sorted(
+                    current_timeline[target_day], 
+                    key=lambda x: [int(num) for num in x['start'].split(':')]
+                )
+                
                 trip.timeline_data = current_timeline
             trip.save()
         except Trip.DoesNotExist:
             pass
 
     return Response({"status": status_type, "time": "14:15:00", "remark": remark})
-
 @api_view(['DELETE'])
 def delete_trip_api(request, trip_id):
     """
