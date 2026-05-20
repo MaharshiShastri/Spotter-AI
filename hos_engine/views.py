@@ -1,3 +1,4 @@
+# hos_engine/views.py
 import os
 import json
 import urllib.parse
@@ -10,13 +11,8 @@ from groq import Groq
 from .models import Trip, ManualDriverLog
 
 def geocode_osm(address_string):
-    """
-    Resolves locations into coordinate decimals using the Geocode.maps.co API
-    authenticated safely via an infrastructure environment API Key.
-    """
     if not address_string:
         return None
-        
     if "GPS:" in address_string:
         try:
             coords = address_string.replace("GPS:", "").strip().split(",")
@@ -33,23 +29,16 @@ def geocode_osm(address_string):
         url = f"https://geocode.maps.co/search?q={urllib.parse.quote(address_string)}&api_key={api_key}"
         headers = {'User-Agent': 'SpotterAI_Engine/2.0'}
         response = requests.get(url, headers=headers, timeout=45)
-        
         if response.ok and response.json():
             payload = response.json()[0]
-            print(f"Maps.co Success: '{address_string}' -> {payload['lat']}, {payload['lon']}")
             return float(payload['lat']), float(payload['lon'])
     except Exception as e:
         print(f"Maps.co Geocoding Exception: {str(e)}")
     return None
 
 def calculate_osrm_distance(origin_coords, dest_coords):
-    """
-    Helper utility that queries the Open Source Routing Machine (OSRM) engine 
-    to obtain real-world highway transit distance mapped in statute miles.
-    """
     if not origin_coords or not dest_coords:
         return 0.0
-        
     try:
         url = f"http://router.project-osrm.org/route/v1/driving/{origin_coords[1]},{origin_coords[0]};{dest_coords[1]},{dest_coords[0]}?overview=false"
         response = requests.get(url, timeout=45)
@@ -66,13 +55,20 @@ def calculate_osrm_distance(origin_coords, dest_coords):
 def calculate_trip_api(request):
     """
     Primary API endpoint to calculate an FMCSA-compliant driving itinerary schedule.
-    Spreads long distances over multiple days dynamically mapping coordinates straight from OpenStreetMap.
+    Accepts an explicit user 'start_time' parameter directly from the driver payload interface.
     """
     data = request.data
     current_loc = data.get('current_location', '')
     pickup_loc = data.get('pickup_location', '')
     dropoff_loc = data.get('dropoff_location', '')
     cycle_used_raw = data.get('cycle_used', '0')
+    
+    # NEW: Read explicit driver-selected start time parameter (Default fallback: 06:00)
+    driver_start_time = data.get('start_time', '06:00')
+    try:
+        base_start = int(driver_start_time.split(':')[0])
+    except Exception:
+        base_start = 6
     
     try:
         cycle_used = float(cycle_used_raw) if cycle_used_raw else 0.0
@@ -88,7 +84,7 @@ def calculate_trip_api(request):
     computed_total_miles = round(leg_one_miles + leg_two_miles, 1)
     
     if computed_total_miles <= 0:
-        computed_total_miles = 450.0  # Safe dynamic routing default fallback
+        computed_total_miles = 450.0
 
     estimated_hours = round(computed_total_miles / 55.0, 1)
     remaining_driving_hours = estimated_hours
@@ -96,36 +92,34 @@ def calculate_trip_api(request):
     logs_by_day = {}
     day_counter = 1
     
-    # Adding randomized variation offsets onto the timeline logs 
-    route_hash_mod = (sum(ord(c) for c in route_string) * 7) % 5 if route_string else 0
-    
     while remaining_driving_hours > 0:
         day_key = f"Day {day_counter}"
         day_driving_this_shift = min(remaining_driving_hours, 11.0)
         remaining_driving_hours = round(remaining_driving_hours - day_driving_this_shift, 1)
         
-        # FIX: Explicitly calculated here so BOTH conditional branches can access them safely!
-        base_start = 5 + route_hash_mod
-        start_str = f"0{base_start}:00" if base_start < 10 else f"{base_start}:00"
-        driving_start_str = f"0{base_start+1}:00" if (base_start+1) < 10 else f"{base_start+1}:00"
+        start_str = f"{base_start:02d}:00"
+        driving_start_str = f"{(base_start + 1):02d}:00"
         
         if day_driving_this_shift >= 11.0:
-            # FIX: Swapped hardcoded '06:00' timeline references out for organic, variant structures
             logs_by_day[day_key] = [
                 {"status": "ON_DUTY", "start": start_str, "duration_mins": 60, "remark": f"Pre-Trip Inspection for route to {dropoff_loc[:15]}"},
                 {"status": "DRIVING", "start": driving_start_str, "duration_mins": 300, "remark": "Transit Leg Part 1"},
-                {"status": "OFF_DUTY", "start": f"0{base_start+6}:00" if (base_start+6) < 10 else f"{base_start+6}:00", "duration_mins": 30, "remark": "Mandatory 30-Min Rest Break"},
-                {"status": "DRIVING", "start": f"0{base_start+6}:30" if (base_start+6) < 10 else f"{base_start+6}:30", "duration_mins": 360, "remark": "Transit Leg Part 2"},
-                {"status": "ON_DUTY", "start": f"{base_start+12}:30", "duration_mins": 30, "remark": "Post-Trip Inspection & Site Parking"},
-                {"status": "SLEEPER_BERTH", "start": f"{base_start+13}:00", "duration_mins": 600, "remark": "Mandatory 10-Hour Sleep Cycle"}
+                {"status": "OFF_DUTY", "start": f"{(base_start+6)%24:02d}:00", "duration_mins": 30, "remark": "Mandatory 30-Min Rest Break"},
+                {"status": "DRIVING", "start": f"{(base_start+6)%24:02d}:30", "duration_mins": 360, "remark": "Transit Leg Part 2"},
+                {"status": "ON_DUTY", "start": f"{(base_start+12)%24:02d}:30", "duration_mins": 30, "remark": "Post-Trip Inspection & Site Parking"},
+                {"status": "SLEEPER_BERTH", "start": f"{(base_start+13)%24:02d}:00", "duration_mins": 600, "remark": "Mandatory 10-Hour Sleep Cycle"}
             ]
         else:
             driving_mins = int(day_driving_this_shift * 60)
+            drv_start_mins = (base_start + 1) * 60
+            post_start_mins = drv_start_mins + driving_mins
+            slp_start_mins = post_start_mins + 60
+            
             logs_by_day[day_key] = [
                 {"status": "ON_DUTY", "start": start_str, "duration_mins": 60, "remark": "Pre-Trip Fleet Verification"},
                 {"status": "DRIVING", "start": driving_start_str, "duration_mins": driving_mins, "remark": "Final Approach to Delivery Destination Hub"},
-                {"status": "ON_DUTY", "start": f"{base_start + 1 + int(day_driving_this_shift)}:00", "duration_mins": 60, "remark": "Unloading & Post-Trip Checkout Complete"},
-                {"status": "SLEEPER_BERTH", "start": f"{base_start + 2 + int(day_driving_this_shift)}:00", "duration_mins": 600, "remark": "Rest Cycle"}
+                {"status": "ON_DUTY", "start": f"{(post_start_mins // 60) % 24:02d}:{post_start_mins % 60:02d}", "duration_mins": 60, "remark": "Unloading & Post-Trip Checkout Complete"},
+                {"status": "SLEEPER_BERTH", "start": f"{(slp_start_mins // 60) % 24:02d}:{slp_start_mins % 60:02d}", "duration_mins": 600, "remark": "Rest Cycle"}
             ]
             
         day_counter += 1
@@ -135,7 +129,6 @@ def calculate_trip_api(request):
         {"name": pickup_loc if pickup_loc else "Pickup Hub", "lat": pickup_point[0] if pickup_point else 41.8781, "lng": pickup_point[1] if pickup_point else -87.6298},
         {"name": dropoff_loc if dropoff_loc else "Delivery Destination", "lat": dropoff_point[0] if dropoff_point else 25.7617, "lng": dropoff_point[1] if dropoff_point else -80.1918}
     ]
-    print(waypoints)
         
     db_trip = Trip.objects.create(
         current_location=current_loc or "Unknown Origin",
@@ -156,6 +149,56 @@ def calculate_trip_api(request):
         "waypoints": waypoints
     })
 
+@api_view(['POST'])
+def log_manual_status(request):
+    """
+    Accepts a real manual change request from the driver workspace.
+    Processes dynamic custom 'start' and 'duration_mins' parameters from the front end.
+    """
+    status_type = request.data.get('status', 'OFF_DUTY')
+    remark = request.data.get('remark', '')
+    trip_id = request.data.get('trip_id')
+    
+    # NEW: Extract real operational metrics passed from front-end client components
+    custom_start = request.data.get('start', '12:00')
+    custom_duration = int(request.data.get('duration_mins', 30))
+    
+    ManualDriverLog.objects.create(status=status_type, remark=remark)
+    
+    if trip_id:
+        try:
+            trip = Trip.objects.get(id=trip_id)
+            if status_type == "END_TRIP":
+                trip.is_completed = True
+            else:
+                current_timeline = dict(trip.timeline_data)
+                days = list(current_timeline.keys())
+                target_day = days[-1] if days else "Day 1"
+                
+                if target_day not in current_timeline:
+                    current_timeline[target_day] = []
+                
+                # FIX: Injected properties now pull explicitly from variables instead of sandboxed defaults
+                current_timeline[target_day].append({
+                    "status": status_type,
+                    "start": custom_start,
+                    "duration_mins": custom_duration,
+                    "remark": f"[In-Cab Update] {remark}"
+                })
+                
+                # Keeps the graph rendering sequence continuous
+                current_timeline[target_day] = sorted(
+                    current_timeline[target_day], 
+                    key=lambda x: [int(num) for num in x['start'].split(':')]
+                )
+                
+                trip.timeline_data = current_timeline
+            trip.save()
+        except Trip.DoesNotExist:
+            pass
+
+    return Response({"status": status_type, "time": f"{custom_start}:00", "remark": remark})
+
 @api_view(['GET'])
 def get_trip_history(request):
     trips = Trip.objects.all().order_by('-created_at')
@@ -174,52 +217,8 @@ def get_trip_history(request):
         })
     return Response(history_payload)
 
-@api_view(['POST'])
-def log_manual_status(request):
-    status_type = request.data.get('status', 'OFF_DUTY')
-    remark = request.data.get('remark', '')
-    trip_id = request.data.get('trip_id')
-    
-    ManualDriverLog.objects.create(status=status_type, remark=remark)
-    
-    if trip_id:
-        try:
-            trip = Trip.objects.get(id=trip_id)
-            if status_type == "END_TRIP":
-                trip.is_completed = True
-            else:
-                current_timeline = dict(trip.timeline_data)
-                days = list(current_timeline.keys())
-                target_day = days[-1] if days else "Day 1"
-                
-                if target_day not in current_timeline:
-                    current_timeline[target_day] = []
-                
-                # Append manual logs safely 
-                current_timeline[target_day].append({
-                    "status": status_type,
-                    "start": "14:15",
-                    "duration_mins": 30,
-                    "remark": f"[In-Cab Update] {remark}"
-                })
-                
-                # FIX: Sort the log array by time string so the chart line remains continuous!
-                current_timeline[target_day] = sorted(
-                    current_timeline[target_day], 
-                    key=lambda x: [int(num) for num in x['start'].split(':')]
-                )
-                
-                trip.timeline_data = current_timeline
-            trip.save()
-        except Trip.DoesNotExist:
-            pass
-
-    return Response({"status": status_type, "time": "14:15:00", "remark": remark})
 @api_view(['DELETE'])
 def delete_trip_api(request, trip_id):
-    """
-    Permanently purges an individual dispatch log instance from SQLite.
-    """
     try:
         trip = Trip.objects.get(id=trip_id)
         trip.delete()
