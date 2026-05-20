@@ -134,3 +134,12 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'frontend', 'dist'),
 ]
 CORS_ALLOW_ALL_ORIGINS = False
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.db.models.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
