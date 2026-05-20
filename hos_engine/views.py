@@ -99,6 +99,8 @@ def calculate_trip_api(request):
         
         start_str = f"{base_start:02d}:00"
         driving_start_str = f"{(base_start + 1):02d}:00"
+        
+        # 1. NEW: Calculate initial morning rest buffer from midnight to driver start time
         initial_rest_mins = base_start * 60
         day_initial_segments = []
         
@@ -109,9 +111,10 @@ def calculate_trip_api(request):
                 "duration_mins": initial_rest_mins, 
                 "remark": "Initial Off-Duty Rest Period"
             })
-            
+
+        # 2. Append the calculated workload legs for the day
         if day_driving_this_shift >= 11.0:
-            logs_by_day[day_key] = [
+            route_segments = [
                 {"status": "ON_DUTY", "start": start_str, "duration_mins": 60, "remark": f"Pre-Trip Inspection for route to {dropoff_loc[:15]}"},
                 {"status": "DRIVING", "start": driving_start_str, "duration_mins": 300, "remark": "Transit Leg Part 1"},
                 {"status": "OFF_DUTY", "start": f"{(base_start+6)%24:02d}:00", "duration_mins": 30, "remark": "Mandatory 30-Min Rest Break"},
@@ -132,6 +135,7 @@ def calculate_trip_api(request):
                 {"status": "SLEEPER_BERTH", "start": f"{(slp_start_mins // 60) % 24:02d}:{slp_start_mins % 60:02d}", "duration_mins": 600, "remark": "Rest Cycle"}
             ]
             
+        # Combine the midnight anchor block with the rest of the operational segments
         logs_by_day[day_key] = day_initial_segments + route_segments
         day_counter += 1
 
