@@ -124,7 +124,9 @@ def calculate_trip_api(request):
         {"name": pickup_loc if pickup_loc else "Pickup Hub", "lat": pickup_point[0] if pickup_point else 41.8781, "lng": pickup_point[1] if pickup_point else -87.6298},
         {"name": dropoff_loc if dropoff_loc else "Delivery Destination", "lat": dropoff_point[0] if dropoff_point else 25.7617, "lng": dropoff_point[1] if dropoff_point else -80.1918}
     ]
-
+    for i in range(waypoints):
+        print(waypoints["name"], "Has lat: ", waypoints["lat"], " has long: ", waypoints["lng"])
+        
     db_trip = Trip.objects.create(
         current_location=current_loc or "Unknown Origin",
         pickup_location=pickup_loc or "Unknown Pickup Hub",
