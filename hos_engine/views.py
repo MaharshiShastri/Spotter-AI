@@ -99,7 +99,17 @@ def calculate_trip_api(request):
         
         start_str = f"{base_start:02d}:00"
         driving_start_str = f"{(base_start + 1):02d}:00"
+        initial_rest_mins = base_start * 60
+        day_initial_segments = []
         
+        if initial_rest_mins > 0:
+            day_initial_segments.append({
+                "status": "OFF_DUTY", 
+                "start": "00:00", 
+                "duration_mins": initial_rest_mins, 
+                "remark": "Initial Off-Duty Rest Period"
+            })
+            
         if day_driving_this_shift >= 11.0:
             logs_by_day[day_key] = [
                 {"status": "ON_DUTY", "start": start_str, "duration_mins": 60, "remark": f"Pre-Trip Inspection for route to {dropoff_loc[:15]}"},
@@ -121,7 +131,7 @@ def calculate_trip_api(request):
                 {"status": "ON_DUTY", "start": f"{(post_start_mins // 60) % 24:02d}:{post_start_mins % 60:02d}", "duration_mins": 60, "remark": "Unloading & Post-Trip Checkout Complete"},
                 {"status": "SLEEPER_BERTH", "start": f"{(slp_start_mins // 60) % 24:02d}:{slp_start_mins % 60:02d}", "duration_mins": 600, "remark": "Rest Cycle"}
             ]
-            
+        logs_by_day[day_key] = day_initial_segments + route_segments
         day_counter += 1
 
     waypoints = [
