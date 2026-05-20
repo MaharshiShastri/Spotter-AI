@@ -125,12 +125,13 @@ def calculate_trip_api(request):
             post_start_mins = drv_start_mins + driving_mins
             slp_start_mins = post_start_mins + 60
             
-            logs_by_day[day_key] = [
+            route_segments = [
                 {"status": "ON_DUTY", "start": start_str, "duration_mins": 60, "remark": "Pre-Trip Fleet Verification"},
                 {"status": "DRIVING", "start": driving_start_str, "duration_mins": driving_mins, "remark": "Final Approach to Delivery Destination Hub"},
                 {"status": "ON_DUTY", "start": f"{(post_start_mins // 60) % 24:02d}:{post_start_mins % 60:02d}", "duration_mins": 60, "remark": "Unloading & Post-Trip Checkout Complete"},
                 {"status": "SLEEPER_BERTH", "start": f"{(slp_start_mins // 60) % 24:02d}:{slp_start_mins % 60:02d}", "duration_mins": 600, "remark": "Rest Cycle"}
             ]
+            
         logs_by_day[day_key] = day_initial_segments + route_segments
         day_counter += 1
 
