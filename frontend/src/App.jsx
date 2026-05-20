@@ -53,11 +53,10 @@ export default function App() {
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef(null);
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
-  
+    
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/trip-history/`);
+      const res = await fetch(`/api/trip-history/`);
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
@@ -87,7 +86,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/delete-trip/${tripId}/`, {
+      const response = await fetch(`/api/delete-trip/${tripId}/`, {
         method: 'DELETE',
       });
 
@@ -163,7 +162,7 @@ export default function App() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/calculate-trip/`, {
+      const response = await fetch(`/api/calculate-trip/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -200,7 +199,7 @@ export default function App() {
     const remarkToSend = customRemark || manualRemark;
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/manual-log/`, {
+      const response = await fetch(`/api/manual-log/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -252,7 +251,7 @@ export default function App() {
     setChatLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/chat/`, {
+      const response = await fetch(`/api/chat/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
