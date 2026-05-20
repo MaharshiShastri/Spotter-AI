@@ -11,8 +11,8 @@ from .models import Trip, ManualDriverLog
 
 def geocode_osm(address_string):
     """
-    Helper utility to resolve location descriptive text into absolute 
-    Latitude & Longitude decimal values using the OpenStreetMap Nominatim API.
+    Resolves locations into coordinate decimals using the Geocode.maps.co API
+    authenticated safely via an infrastructure environment API Key.
     """
     if not address_string:
         return None
@@ -23,6 +23,7 @@ def geocode_osm(address_string):
             return float(coords[0]), float(coords[1])
         except Exception:
             pass
+
     api_key = os.environ.get("MAPS_CO_API_KEY")
     if not api_key:
         print("Warning: MAPS_CO_API_KEY missing from environment variables.")
@@ -30,7 +31,9 @@ def geocode_osm(address_string):
 
     try:
         url = f"https://geocode.maps.co/search?q={urllib.parse.quote(address_string)}&api_key={api_key}"
+        headers = {'User-Agent': 'SpotterAI_Engine/2.0'}
         response = requests.get(url, headers=headers, timeout=45)
+        
         if response.ok and response.json():
             payload = response.json()[0]
             print(f"Maps.co Success: '{address_string}' -> {payload['lat']}, {payload['lon']}")
@@ -93,8 +96,7 @@ def calculate_trip_api(request):
     logs_by_day = {}
     day_counter = 1
     
-    # ISSUE 1 FIX: Adding randomized variation offsets onto the timeline logs 
-    # based directly on user route characteristics so they don't look completely identical
+    # Adding randomized variation offsets onto the timeline logs 
     route_hash_mod = sum(ord(c) for c in pickup_loc + dropoff_loc) % 3 if (pickup_loc and dropoff_loc) else 0
     
     while remaining_driving_hours > 0:
@@ -102,14 +104,20 @@ def calculate_trip_api(request):
         day_driving_this_shift = min(remaining_driving_hours, 11.0)
         remaining_driving_hours = round(remaining_driving_hours - day_driving_this_shift, 1)
         
+        # FIX: Explicitly calculated here so BOTH conditional branches can access them safely!
+        base_start = 6 + route_hash_mod
+        start_str = f"0{base_start}:00" if base_start < 10 else f"{base_start}:00"
+        driving_start_str = f"0{base_start+1}:00" if (base_start+1) < 10 else f"{base_start+1}:00"
+        
         if day_driving_this_shift >= 11.0:
+            # FIX: Swapped hardcoded '06:00' timeline references out for organic, variant structures
             logs_by_day[day_key] = [
-                {"status": "ON_DUTY", "start": "06:00", "duration_mins": 60, "remark": f"Pre-Trip Inspection for route to {dropoff_loc[:15]}"},
-                {"status": "DRIVING", "start": "07:00", "duration_mins": 300, "remark": "Transit Leg Part 1"},
-                {"status": "OFF_DUTY", "start": "12:00", "duration_mins": 30, "remark": "Mandatory 30-Min Rest Break"},
-                {"status": "DRIVING", "start": "12:30", "duration_mins": 360, "remark": "Transit Leg Part 2"},
-                {"status": "ON_DUTY", "start": "18:30", "duration_mins": 30, "remark": "Post-Trip Inspection & Site Parking"},
-                {"status": "SLEEPER_BERTH", "start": "19:00", "duration_mins": 600, "remark": "Mandatory 10-Hour Sleep Cycle"}
+                {"status": "ON_DUTY", "start": start_str, "duration_mins": 60, "remark": f"Pre-Trip Inspection for route to {dropoff_loc[:15]}"},
+                {"status": "DRIVING", "start": driving_start_str, "duration_mins": 300, "remark": "Transit Leg Part 1"},
+                {"status": "OFF_DUTY", "start": f"0{base_start+6}:00" if (base_start+6) < 10 else f"{base_start+6}:00", "duration_mins": 30, "remark": "Mandatory 30-Min Rest Break"},
+                {"status": "DRIVING", "start": f"0{base_start+6}:30" if (base_start+6) < 10 else f"{base_start+6}:30", "duration_mins": 360, "remark": "Transit Leg Part 2"},
+                {"status": "ON_DUTY", "start": f"{base_start+12}:30", "duration_mins": 30, "remark": "Post-Trip Inspection & Site Parking"},
+                {"status": "SLEEPER_BERTH", "start": f"{base_start+13}:00", "duration_mins": 600, "remark": "Mandatory 10-Hour Sleep Cycle"}
             ]
         else:
             driving_mins = int(day_driving_this_shift * 60)
@@ -119,6 +127,8 @@ def calculate_trip_api(request):
                 {"status": "ON_DUTY", "start": f"{base_start + 1 + int(day_driving_this_shift)}:00", "duration_mins": 60, "remark": "Unloading & Post-Trip Checkout Complete"},
                 {"status": "SLEEPER_BERTH", "start": f"{base_start + 2 + int(day_driving_this_shift)}:00", "duration_mins": 600, "remark": "Rest Cycle"}
             ]
+            
+        day_counter += 1
 
     waypoints = [
         {"name": current_loc if current_loc else "Current Position", "lat": current_point[0] if current_point else 39.0997, "lng": current_point[1] if current_point else -94.5786},
@@ -172,14 +182,12 @@ def log_manual_status(request):
     
     ManualDriverLog.objects.create(status=status_type, remark=remark)
     
-    # ISSUE 1 DYNAMIC FIX: Instantly patches manual overrides into the correct database record column
     if trip_id:
         try:
             trip = Trip.objects.get(id=trip_id)
             if status_type == "END_TRIP":
                 trip.is_completed = True
             else:
-                # Append manual logs to timeline structure
                 current_timeline = dict(trip.timeline_data)
                 days = list(current_timeline.keys())
                 target_day = days[-1] if days else "Day 1"
@@ -199,7 +207,6 @@ def log_manual_status(request):
 
     return Response({"status": status_type, "time": "14:15:00", "remark": remark})
 
-# ISSUE 2 FIX: Added Delete Endpoint
 @api_view(['DELETE'])
 def delete_trip_api(request, trip_id):
     """
