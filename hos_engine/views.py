@@ -26,7 +26,7 @@ def geocode_osm(address_string):
 
     try:
         url = f"https://nominatim.openstreetmap.org/search?format=json&q={urllib.parse.quote(address_string)}&limit=1"
-        headers = {'User-Agent': 'SpotterAI_FleetLogTerminal/1.0'}
+        headers = {'User-Agent': 'SpotterAI_LogisticsEngine_ProductionRun/2.0 (Contact: maharshi@example.com)'}
         response = requests.get(url, headers=headers, timeout=45)
         if response.ok and response.json():
             payload = response.json()[0]
