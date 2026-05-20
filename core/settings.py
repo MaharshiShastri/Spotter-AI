@@ -25,7 +25,12 @@ SECRET_KEY = 'django-insecure-fn$&8o23@f!o_7tz_lk$^7l_j9s49lrs3#jkc4i)7!mx!vxw9t
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['.render.com', '127.0.0.1', 'localhost', "https://spotter-ai-48kk.onrender.com"]
+ALLOWED_HOSTS = [
+    'spotter-ai-48kk.onrender.com',      # Your public Render application domain
+    '.onrender.com',                     # Catch-all wildcard for any Render internal routing paths
+    'localhost',
+    '127.0.0.1',
+]
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",       # Default Vite local dev server
     "http://127.0.0.1:5173",
