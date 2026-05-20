@@ -23,16 +23,20 @@ def geocode_osm(address_string):
             return float(coords[0]), float(coords[1])
         except Exception:
             pass
+    api_key = os.environ.get("MAPS_CO_API_KEY")
+    if not api_key:
+        print("Warning: MAPS_CO_API_KEY missing from environment variables.")
+        return None
 
     try:
-        url = f"https://nominatim.openstreetmap.org/search?format=json&q={urllib.parse.quote(address_string)}&limit=1"
-        headers = {'User-Agent': 'SpotterAI_LogisticsEngine_ProductionRun/2.0 (Contact: maharshishastri12@gmail.com)'}
+        url = f"https://geocode.maps.co/search?q={urllib.parse.quote(address_string)}&api_key={api_key}"
         response = requests.get(url, headers=headers, timeout=45)
         if response.ok and response.json():
             payload = response.json()[0]
+            print(f"Maps.co Success: '{address_string}' -> {payload['lat']}, {payload['lon']}")
             return float(payload['lat']), float(payload['lon'])
     except Exception as e:
-        print(f"OSM Geocoding Fetch Exception raised: {str(e)}")
+        print(f"Maps.co Geocoding Exception: {str(e)}")
     return None
 
 def calculate_osrm_distance(origin_coords, dest_coords):
@@ -109,15 +113,12 @@ def calculate_trip_api(request):
             ]
         else:
             driving_mins = int(day_driving_this_shift * 60)
-            start_hour = 7 + route_hash_mod  # Dynamically shifts baseline schedules per unique run!
             logs_by_day[day_key] = [
-                {"status": "ON_DUTY", "start": f"0{start_hour}:00" if start_hour < 10 else f"{start_hour}:00", "duration_mins": 60, "remark": "Pre-Trip Fleet Verification"},
-                {"status": "DRIVING", "start": f"0{start_hour+1}:00" if (start_hour+1) < 10 else f"{start_hour+1}:00", "duration_mins": driving_mins, "remark": f"Final Approach to Delivery Destination Hub"},
-                {"status": "ON_DUTY", "start": f"{start_hour + 1 + int(day_driving_this_shift)}:00", "duration_mins": 60, "remark": "Unloading & Post-Trip Checkout Complete"},
-                {"status": "SLEEPER_BERTH", "start": f"{start_hour + 2 + int(day_driving_this_shift)}:00", "duration_mins": 600, "remark": "Rest Cycle"}
+                {"status": "ON_DUTY", "start": start_str, "duration_mins": 60, "remark": "Pre-Trip Fleet Verification"},
+                {"status": "DRIVING", "start": driving_start_str, "duration_mins": driving_mins, "remark": "Final Approach to Delivery Destination Hub"},
+                {"status": "ON_DUTY", "start": f"{base_start + 1 + int(day_driving_this_shift)}:00", "duration_mins": 60, "remark": "Unloading & Post-Trip Checkout Complete"},
+                {"status": "SLEEPER_BERTH", "start": f"{base_start + 2 + int(day_driving_this_shift)}:00", "duration_mins": 600, "remark": "Rest Cycle"}
             ]
-            
-        day_counter += 1
 
     waypoints = [
         {"name": current_loc if current_loc else "Current Position", "lat": current_point[0] if current_point else 39.0997, "lng": current_point[1] if current_point else -94.5786},
