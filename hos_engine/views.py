@@ -27,7 +27,7 @@ def geocode_osm(address_string):
     try:
         url = f"https://nominatim.openstreetmap.org/search?format=json&q={urllib.parse.quote(address_string)}&limit=1"
         headers = {'User-Agent': 'SpotterAI_FleetLogTerminal/1.0'}
-        response = requests.get(url, headers=headers, timeout=5)
+        response = requests.get(url, headers=headers, timeout=45)
         if response.ok and response.json():
             payload = response.json()[0]
             return float(payload['lat']), float(payload['lon'])
@@ -45,7 +45,7 @@ def calculate_osrm_distance(origin_coords, dest_coords):
         
     try:
         url = f"http://router.project-osrm.org/route/v1/driving/{origin_coords[1]},{origin_coords[0]};{dest_coords[1]},{dest_coords[0]}?overview=false"
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=45)
         if response.ok:
             payload = response.json()
             if "routes" in payload and len(payload["routes"]) > 0:
@@ -232,7 +232,7 @@ def groq_rag_chat(request):
                         total_sleep_mins += seg.get('duration_mins', 0)
             db_context_string += f"   -> Logged Sleep Record for this Itinerary: {round(total_sleep_mins / 60, 1)} hours spent in SLEEPER_BERTH.\n"
 
-    client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+    client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
     try:
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
