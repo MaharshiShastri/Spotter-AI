@@ -15,23 +15,139 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import MapIcon from '@mui/icons-material/Map';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import CloseIcon from '@mui/icons-material/Close';
-import DeleteForeverIcon from '@mui/icons-material/DeleteForever'; // New Feature Icon
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever'; 
 import LogGrid from './components/LogGrid';
 import TripMap from './components/TripMap';
 import AddressAutocomplete from './components/AddressAutocomplete';
 
+// =========================================================================
+// SINGLE LINE SUB-COMPONENT ACTION BAR
+// =========================================================================
+function ActionControlBar({ onCalculate, onReset, onDetectLocation, geoLoading, formState, setFormState, loading }) {
+  return (
+    <Box 
+      component="form" 
+      onSubmit={(e) => { e.preventDefault(); onCalculate(); }}
+      sx={{ 
+        display: 'flex', 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        gap: 1.5, 
+        flexWrap: 'nowrap', 
+        width: '100%',
+        p: 2,
+        bgcolor: '#ffffff',
+        borderRadius: 3,
+        border: '1px solid #e2e8f0',
+        mb: 3,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1.2 }}>
+        <TextField
+          label="Origin Address"
+          variant="outlined"
+          size="small"
+          fullWidth
+          value={formState.current_location}
+          onChange={(e) => setFormState({ ...formState, current_location: e.target.value })}
+        />
+        <Button variant="outlined" color="primary" onClick={onDetectLocation} disabled={geoLoading} sx={{ height: 40, minWidth: 40, p: 0, borderRadius: 1.5 }}>
+          {geoLoading ? <CircularProgress size={16} /> : <MyLocationIcon fontSize="small" />}
+        </Button>
+      </Box>
+      
+      <Box sx={{ flex: 1 }}>
+        <TextField
+          label="Pickup Cargo Terminal"
+          variant="outlined"
+          size="small"
+          fullWidth
+          value={formState.pickup_location}
+          onChange={(e) => setFormState({ ...formState, pickup_location: e.target.value })}
+        />
+      </Box>
+      
+      <Box sx={{ flex: 1 }}>
+        <TextField
+          label="Delivery Destination"
+          variant="outlined"
+          size="small"
+          fullWidth
+          value={formState.dropoff_location}
+          onChange={(e) => setFormState({ ...formState, dropoff_location: e.target.value })}
+        />
+      </Box>
+
+      <Box sx={{ width: '130px' }}>
+        <TextField
+          fullWidth
+          label="Used Cycle"
+          variant="outlined"
+          size="small"
+          type="number"
+          placeholder="e.g. 14.5"
+          value={formState.cycle_used}
+          onChange={(e) => setFormState({ ...formState, cycle_used: e.target.value })}
+        />
+      </Box>
+
+      <Box sx={{ width: '140px' }}>
+        <TextField
+          select
+          fullWidth
+          label="Start Time"
+          variant="outlined"
+          size="small"
+          value={formState.start_time || '06:00'}
+          onChange={(e) => setFormState({ ...formState, start_time: e.target.value })}
+        >
+          <MenuItem value="05:00">05:00 AM</MenuItem>
+          <MenuItem value="06:00">06:00 AM</MenuItem>
+          <MenuItem value="07:00">07:00 AM</MenuItem>
+          <MenuItem value="08:00">08:00 AM</MenuItem>
+          <MenuItem value="09:00">09:00 AM</MenuItem>
+          <MenuItem value="10:00">10:00 AM</MenuItem>
+        </TextField>
+      </Box>
+
+      <Button 
+        type="submit"
+        variant="contained" 
+        color="primary" 
+        size="medium"
+        disabled={loading}
+        sx={{ whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'none', borderRadius: 2, height: 40 }}
+      >
+        {loading ? <CircularProgress size={18} color="inherit" /> : 'Create Route'}
+      </Button>
+      
+      <Button 
+        variant="outlined" 
+        color="error" 
+        size="medium"
+        onClick={onReset}
+        sx={{ whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'none', borderRadius: 2, height: 40 }}
+      >
+        Reset Grid
+      </Button>
+    </Box>
+  );
+}
+
+// =========================================================================
+// MAIN APP ARCHITECTURE
+// =========================================================================
 export default function App() {
-  // Page Navigation State Configuration: 'setup' | 'active_trip' | 'history'
   const [currentPage, setCurrentPage] = useState('setup');
-  
-  // Floating Widget Control States
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   const defaultFormState = {
     current_location: '',
     pickup_location: '',
     dropoff_location: '',
-    cycle_used: ''
+    cycle_used: '',
+    start_time: '06:00' // Initial default setup configuration line
   };
 
   const [formData, setFormData] = useState(defaultFormState);
@@ -52,7 +168,6 @@ export default function App() {
   ]);
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef(null);
-
     
   const fetchHistory = async () => {
     try {
@@ -62,7 +177,7 @@ export default function App() {
         setHistory(data);
       }
     } catch (err) {
-      console.error("Historical fetch connection dropped: ", err); // FIXED: Changed python 'print' to 'console.error'
+      console.error("Historical fetch connection dropped: ", err);
     }
   };
 
@@ -76,9 +191,7 @@ export default function App() {
     }
   }, [chatMessages, isChatOpen]);
 
-  // NEW FEATURE: Handle Delete Trip Event Handler
   const handleDeleteTrip = async (tripId, event) => {
-    // If deleted via the archive list view, prevent event bubbling from opening the active tab view simultaneously
     if (event) event.stopPropagation();
     
     if (!window.confirm("Are you sure you want to permanently delete this trip and purge its entire HOS log record?")) {
@@ -91,12 +204,10 @@ export default function App() {
       });
 
       if (response.ok) {
-        // If the trip currently loaded into our active view was the one deleted, clear it out gracefully
         if (tripResult && tripResult.id === tripId) {
           setTripResult(null);
           setCurrentPage('setup');
         }
-        // Force sync update local history state arrays
         fetchHistory();
       } else {
         const data = await response.json();
@@ -106,21 +217,6 @@ export default function App() {
       console.error("Error communicating with delete endpoint: ", err);
       setError("Network execution block dropped during database purge.");
     }
-  };
-
-  const handleAutocompleteChange = (e) => {
-    if (!e || !e.target) return;
-    const { name, value } = e.target;
-    if (!name) return;
-    
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: typeof value === 'string' ? value : '' 
-    }));
-  };
-
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSetupNewTrip = () => {
@@ -152,8 +248,7 @@ export default function App() {
     );
   };
 
-  const handleCalculateTrip = async (e) => {
-    if (e) e.preventDefault();
+  const handleCalculateTrip = async () => {
     if (!formData.current_location || !formData.pickup_location || !formData.dropoff_location) {
       setError("Please fill out all location inputs before running optimization routines.");
       return;
@@ -169,7 +264,8 @@ export default function App() {
           current_location: formData.current_location,
           pickup_location: formData.pickup_location,
           dropoff_location: formData.dropoff_location,
-          cycle_used: formData.cycle_used || '0'
+          cycle_used: formData.cycle_used || '0',
+          start_time: formData.start_time || '06:00' // Transmits explicit user parameter configuration directly
         }),
       });
       if (!response.ok) throw new Error('Failed to compute compliant route variables.');
@@ -189,7 +285,7 @@ export default function App() {
       setCurrentPage('active_trip'); 
     } catch (err) {
       setError(err.message);
-    } finally {
+    } finaly {
       setLoading(false);
     }
   };
@@ -275,7 +371,6 @@ export default function App() {
 
   return (
     <Box sx={{ flexGrow: 1, minHeight: '100vh', bgcolor: '#f8fafc', position: 'relative' }}>
-      {/* Global Navigation Header Bar */}
       <AppBar position="sticky" sx={{ bgcolor: '#0f172a', boxShadow: 3 }}>
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={handleSetupNewTrip}>
@@ -306,68 +401,22 @@ export default function App() {
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="lg" sx={{ mt: 5, pb: 8 }}>
+      <Container maxWidth="xl" sx={{ mt: 5, pb: 8 }}>
         
-        {/* PAGE 1: SETUP AND DISPATCH ROUTE PLANNING */}
+        {/* PAGE 1: RE-ENGINEERED TO EMBED THE HORIZONTAL CONTROL INPUT LINE */}
         {currentPage === 'setup' && (
-          <Box sx={{ maxWidth: 650, mx: 'auto' }}>
+          <Box sx={{ width: '100%', mx: 'auto' }}>
             {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>}
-            <Card sx={{ borderRadius: 4, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
-              <CardContent sx={{ p: 4 }}>
-                <Typography variant="h5" sx={{ fontWeight: 800, mb: 3, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <MapIcon color="primary" /> Formulate New Fleet Run Order
-                </Typography>
-                
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
-                  <Box sx={{ flexGrow: 1 }}>
-                    <AddressAutocomplete 
-                      name="current_location"
-                      label="Driver Starting Coordinates / Origin Address" 
-                      value={formData.current_location} 
-                      onChange={handleAutocompleteChange} 
-                    />
-                  </Box>
-                  <Button variant="outlined" color="primary" onClick={handleDetectLocation} disabled={geoLoading} sx={{ height: 56, minWidth: 56, borderRadius: 2 }}>
-                    {geoLoading ? <CircularProgress size={20} /> : <MyLocationIcon />}
-                  </Button>
-                </Box>
-
-                <AddressAutocomplete 
-                  name="pickup_location"
-                  label="Pickup Cargo Terminal" 
-                  value={formData.pickup_location} 
-                  onChange={handleAutocompleteChange} 
-                />
-                <AddressAutocomplete 
-                  name="dropoff_location"
-                  label="Final Consignee / Delivery Destination" 
-                  value={formData.dropoff_location} 
-                  onChange={handleAutocompleteChange} 
-                />
-                
-                <TextField 
-                  fullWidth 
-                  name="cycle_used" 
-                  label="Hours Already Drank From 70-Hr Clock" 
-                  type="number" 
-                  value={formData.cycle_used} 
-                  onChange={handleInputChange} 
-                  placeholder="e.g. 14.5"
-                  sx={{ mb: 4 }} 
-                />
-                
-                <Button 
-                  fullWidth 
-                  onClick={handleCalculateTrip} 
-                  variant="contained" 
-                  size="large" 
-                  disabled={loading} 
-                  sx={{ bgcolor: '#2563eb', fontWeight: 700, py: 1.8, borderRadius: 3, fontSize: '16px', boxShadow: '0 4px 12px rgba(37,99,235,0.2)' }}
-                >
-                  {loading ? <CircularProgress size={24} color="inherit" /> : 'Compile Compliance & Map Dynamic Paths'}
-                </Button>
-              </CardContent>
-            </Card>
+            
+            <ActionControlBar 
+              formState={formData}
+              setFormState={setFormData}
+              onCalculate={handleCalculateTrip}
+              onReset={handleSetupNewTrip}
+              onDetectLocation={handleDetectLocation}
+              geoLoading={geoLoading}
+              loading={loading}
+            />
           </Box>
         )}
 
@@ -405,7 +454,6 @@ export default function App() {
               ))}
             </Grid>
 
-            {/* In-Cab Right Column Command Pad */}
             <Grid item xs={12} md={4}>
               <Card sx={{ borderRadius: 3, border: '1px solid #e2e8f0', position: 'sticky', top: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
                 <CardContent>
@@ -466,7 +514,6 @@ export default function App() {
                     {tripResult.is_completed ? "Trip Finished & Archived" : "END DISPATCH RUN & FILE"}
                   </Button>
 
-                  {/* NEW FEATURE: Active Panel Context Delete Trigger */}
                   <Button
                     fullWidth
                     variant="text"
@@ -513,14 +560,14 @@ export default function App() {
                           current_location: trip.origin || '',
                           pickup_location: trip.pickup || '',
                           dropoff_location: trip.dropoff || '',
-                          cycle_used: ''
+                          cycle_used: '',
+                          start_time: '06:00'
                         });
                         setCurrentPage('active_trip'); 
                       }}>
                         <ListItem secondaryAction={
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                             <Chip label={trip.is_completed ? "Archived" : "Active"} color={trip.is_completed ? "default" : "success"} variant="filled" size="small" />
-                            {/* NEW FEATURE: Immediate Archival List Purge Button */}
                             <IconButton edge="end" aria-label="delete" color="error" onClick={(e) => handleDeleteTrip(trip.id, e)}>
                               <DeleteForeverIcon />
                             </IconButton>
@@ -543,10 +590,8 @@ export default function App() {
 
       </Container>
 
-      {/* FIXED DOCK LAYER: BOTTOM-RIGHT FLOATING CHATBOT COMPONENT */}
+      {/* FLOATING WIDGET LAYER */}
       <Box sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-        
-        {/* Chat window body */}
         {isChatOpen && (
           <Card sx={{ width: 380, height: 480, borderRadius: 4, boxShadow: '0 8px 32px rgba(15,23,42,0.15)', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: '#fff' }}>
             <Box sx={{ p: 2, bgcolor: '#0f172a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -597,7 +642,6 @@ export default function App() {
           </Card>
         )}
 
-        {/* Floating Action Button Trigger */}
         <Fab 
           color="primary" 
           onClick={() => setIsChatOpen(!isChatOpen)} 
