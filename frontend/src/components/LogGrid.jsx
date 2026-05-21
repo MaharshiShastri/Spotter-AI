@@ -25,7 +25,16 @@ const parseTimeStr = (timeStr) => {
   hrs = hrs % 24; 
   return { hrs, mins };
 };
-
+const visualStatus = (segment) => {
+  const remarkText = segment.remark || '';
+  
+  // Force visual line down to OFF_DUTY for final wrap-up sequences
+  if (segment.status === 'ON_DUTY' && remarkText.includes('Unloading & Post-Trip Checkout Complete')) {
+    return 'OFF_DUTY';
+  }
+  
+  return segment.status;
+};
 const timeToX = (timeStr) => {
   const { hrs, mins } = parseTimeStr(timeStr);
   return PADDING_LEFT + (hrs * HOUR_WIDTH) + ((mins / 60) * HOUR_WIDTH);
