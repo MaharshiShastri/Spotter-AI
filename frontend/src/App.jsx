@@ -16,6 +16,7 @@ import MapIcon from '@mui/icons-material/Map';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever'; 
+import GitHubIcon from '@mui/icons-material/GitHub'; // Added GitHub Icon
 import LogGrid from './components/LogGrid';
 import TripMap from './components/TripMap';
 import AddressAutocomplete from './components/AddressAutocomplete';
@@ -61,7 +62,7 @@ function ActionControlBar({ onCalculate, onReset, onDetectLocation, geoLoading, 
         </Button>
       </Box>
       
-      {/* 2. Pickup Cargo Terminal - Upgraded from basic TextField */}
+      {/* 2. Pickup Cargo Terminal */}
       <Box sx={{ flex: 1 }}>
         <AddressAutocomplete
           label="Pickup Cargo Terminal"
@@ -70,7 +71,7 @@ function ActionControlBar({ onCalculate, onReset, onDetectLocation, geoLoading, 
         />
       </Box>
       
-      {/* 3. Delivery Destination - Upgraded from basic TextField */}
+      {/* 3. Delivery Destination */}
       <Box sx={{ flex: 1 }}>
         <AddressAutocomplete
           label="Delivery Destination"
@@ -285,7 +286,7 @@ export default function App() {
       setCurrentPage('active_trip'); 
     } catch (err) {
       setError(err.message);
-    } finaly {
+    } finally { // Fixed syntax 'finaly' -> 'finally'
       setLoading(false);
     }
   };
@@ -364,7 +365,7 @@ export default function App() {
       }
     } catch (err) {
       setChatMessages(prev => [...prev, { role: 'assistant', text: 'Error connecting to processing nodes.' }]);
-    } finaly {
+    } finally { // Fixed syntax 'finaly' -> 'finally'
       setChatLoading(false);
     }
   };
@@ -395,9 +396,33 @@ export default function App() {
             <Tab label="Filing Archives" value="history" icon={<HistoryIcon fontSize="small"/>} iconPosition="start" />
           </Tabs>
 
-          <Button variant="contained" color="info" startIcon={<AddIcon />} onClick={handleSetupNewTrip} sx={{ fontWeight: 700, borderRadius: 2, bgcolor: '#0284c7' }}>
-            Clear & Reset Form
-          </Button>
+          {/* CODEBASE LINK NAVIGATION ACTION ENTRY */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Button 
+              variant="outlined" 
+              startIcon={<GitHubIcon />}
+              href="https://github.com/MaharshiShastri/Spotter-AI"
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ 
+                color: '#38bdf8', 
+                borderColor: '#38bdf8', 
+                fontWeight: 700, 
+                borderRadius: 2,
+                textTransform: 'none',
+                '&:hover': {
+                  bgcolor: 'rgba(56, 189, 248, 0.08)',
+                  borderColor: '#38bdf8'
+                }
+              }}
+            >
+              Review Codebase
+            </Button>
+
+            <Button variant="contained" color="info" startIcon={<AddIcon />} onClick={handleSetupNewTrip} sx={{ fontWeight: 700, borderRadius: 2, bgcolor: '#0284c7' }}>
+              Clear & Reset Form
+            </Button>
+          </Box>
         </Toolbar>
       </AppBar>
 
@@ -431,7 +456,6 @@ export default function App() {
               )}
               
               <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
-                {/* UPGRADED DISTANCE CONTAINER PANEL FOR GEOMAP FAILURE STRINGS */}
                 <Paper 
                   variant="outlined" 
                   sx={{ 
@@ -599,7 +623,7 @@ export default function App() {
                         } sx={{ py: 2 }}>
                           <ListItemText 
                             primary={<Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{trip.pickup ? trip.pickup.split(',')[0] : 'Unknown'} → {trip.dropoff ? trip.dropoff.split(',')[0] : 'Destination'}</Typography>}
-                            secondary={`Distance Record ID [${trip.id}]: {trip.distance || 0} miles total`}
+                            secondary={`Distance Record ID [${trip.id}]: ${trip.distance || 0} miles total`}
                           />
                         </ListItem>
                       </CardActionArea>
@@ -645,7 +669,7 @@ export default function App() {
                 </Box>
               ))}
               {chatLoading && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#64748b', p: 1 }}>
+                <Box={{ display: 'flex', alignItems: 'center', gap: 1, color: '#64748b', p: 1 }}>
                   <CircularProgress size={14} color="inherit" />
                   <Typography variant="caption" sx={{ fontSize: '11px' }}>Searching contextual indices...</Typography>
                 </Box>
