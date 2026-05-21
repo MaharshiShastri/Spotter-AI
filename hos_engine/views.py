@@ -48,54 +48,42 @@ def geocode_osm(address_string):
 
 def calculate_osrm_distance(origin_coords, dest_coords):
     """
-    Calculates operational mileage route using the official Maps.co OpenRouteService API wrapper.
+    Calculates operational mileage route using the public OSRM engine.
+    Includes explicit custom platform headers to prevent 19h+ automated scraping blocks.
     """
     if not origin_coords or not dest_coords:
         print(f"[Routing API] Invalid coordinate pairing detected. Origin: {origin_coords}, Dest: {dest_coords}")
         return -1.0
 
-    api_key = os.environ.get("MAPS_CO_API_KEY")
-    if not api_key:
-        print("[Routing API] CRITICAL ERROR: MAPS_CO_API_KEY missing from environment variables.")
-        return -1.0
-
     try:
-        # Maps.co routes via an ORS wrapper endpoint
-        url = f"https://router.maps.co/ors/v2/directions/driving-car?api_key={api_key}"
+        # Use the correct, verifiable OSRM routing domain
+        url = f"http://router.project-osrm.org/route/v1/driving/{origin_coords[1]},{origin_coords[0]};{dest_coords[1]},{dest_coords[0]}?overview=false"
+        
+        # CRITICAL: Passing a distinct, tracked user agent keeps the public server from blocking your IP
         headers = {
-            'User-Agent': 'SpotterAI_Engine/2.0',
-            'Content-Type': 'application/json'
+            'User-Agent': 'SpotterAIFleetEngine/2.5 (Contact: maharshishastri12@.com; Python requests)',
+            'Accept': 'application/json',
+            'Connection': 'close'  # Closes connections cleanly to avoid socket resource exhaustion
         }
         
-        # ORS expects coordinates arrays in a POST body: [[start_lon, start_lat], [end_lon, end_lat]]
-        payload = {
-            "coordinates": [
-                [origin_coords[1], origin_coords[0]], 
-                [dest_coords[1], dest_coords[0]]
-            ]
-        }
-        
-        response = requests.post(url, json=payload, headers=headers, timeout=45)
+        response = requests.get(url, headers=headers, timeout=15)
         
         if not response.ok:
-            print(f"[Routing API] Maps.co route request rejected. Status Code: {response.status_code}. Details: {response.text}")
+            print(f"[Routing API] OSRM Server rejected request. Status Code: {response.status_code}. Info: {response.text}")
             return -1.0
             
-        data = response.json()
-        
-        # ORS parses distances in meters inside 'routes' -> 'summary' -> 'distance'
-        if "routes" in data and len(data["routes"]) > 0:
-            summary = data["routes"][0].get("summary", {})
-            meters_distance = summary.get("distance", 0.0)
+        payload = response.json()
+        if "routes" in payload and len(payload["routes"]) > 0:
+            meters_distance = payload["routes"][0]["distance"]
+            # Convert meters safely to imperial dispatch miles
             return round(meters_distance * 0.000621371, 1)
         else:
-            print(f"[Routing API] Expected route data missing from response structure: {data}")
+            print(f"[Routing API] Key 'routes' missing or empty in OSRM payload response: {payload}")
             
     except Exception as e:
-        print(f"[Routing API] Maps.co Routing Matrix Network Infrastructure Failure: {str(e)}")
+        print(f"[Routing API] Public OSRM routing network infrastructure failure: {str(e)}")
         
     return -1.0
-
 @api_view(['POST'])
 def calculate_trip_api(request):
     """
