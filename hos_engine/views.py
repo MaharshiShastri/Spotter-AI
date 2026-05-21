@@ -118,7 +118,7 @@ def calculate_trip_api(request):
     leg_two_miles = calculate_osrm_distance(pickup_point, dropoff_point)
     computed_total_miles = round(leg_one_miles + leg_two_miles, 1)
     
-    if origin_point == -1.0 or pickup_point == -1.0 or dropoff_point == -1.0:
+    if current_point == -1.0 or pickup_point == -1.0 or dropoff_point == -1.0:
         print("Error is trying to find the specific location")
         return JsonResponse({
             "trip_id": None,
