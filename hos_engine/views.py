@@ -118,10 +118,16 @@ def calculate_trip_api(request):
     leg_two_miles = calculate_osrm_distance(pickup_point, dropoff_point)
     computed_total_miles = round(leg_one_miles + leg_two_miles, 1)
     
-    if computed_total_miles <= 0:
-        print(f"[Trip Engine] WARNING: Routing resulted in 0.0 miles. Applying emergency route fallback (450.0 miles).")
-        computed_total_miles = 450.0
-
+    if origin_point == -1.0 or pickup_point == -1.0 or dropoff_point == -1.0:
+        print("Error is trying to find the specific location")
+        return JsonResponse({
+            "trip_id": None,
+            "distance_miles": "-1 mile(place cannot be determined by the Geocode map server)",
+            "estimated_driving_time_hours": 0,
+            "logs_by_day": {},
+            "waypoints": []
+        }, status=200)
+       
     estimated_hours = round(computed_total_miles / 55.0, 1)
     remaining_driving_hours = estimated_hours
     
