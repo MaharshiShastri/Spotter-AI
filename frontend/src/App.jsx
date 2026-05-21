@@ -374,56 +374,62 @@ export default function App() {
     <Box sx={{ flexGrow: 1, minHeight: '100vh', bgcolor: '#f8fafc', position: 'relative' }}>
       <AppBar position="sticky" sx={{ bgcolor: '#0f172a', boxShadow: 3 }}>
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={handleSetupNewTrip}>
-            <LocalShippingIcon sx={{ mr: 1.5, color: '#38bdf8' }} />
-            <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.5px' }}>
-              SPOTTER AI <span style={{ fontWeight: 300, color: '#94a3b8' }}>| HOS Dispatch</span>
-            </Typography>
-          </Box>
-          
-          <Tabs 
-            value={currentPage} 
-            onChange={(e, val) => setCurrentPage(val)} 
-            textColor="inherit" 
-            indicatorColor="primary"
-            sx={{
-              '& .MuiTabs-indicator': { bgcolor: '#38bdf8', height: 3 },
-              '& .MuiTab-root': { fontWeight: 700, fontSize: '14px', px: 3 }
-            }}
-          >
-            <Tab label="Plan Route" value="setup" icon={<AddIcon fontSize="small"/>} iconPosition="start" />
-            <Tab label="Active Tracking" value="active_trip" disabled={!tripResult} icon={<MapIcon fontSize="small"/>} iconPosition="start" />
-            <Tab label="Filing Archives" value="history" icon={<HistoryIcon fontSize="small"/>} iconPosition="start" />
-          </Tabs>
+  <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={handleSetupNewTrip}>
+    <LocalShippingIcon sx={{ mr: 1.5, color: '#38bdf8' }} />
+    <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.5px' }}>
+      SPOTTER AI <span style={{ fontWeight: 300, color: '#94a3b8' }}>| HOS Dispatch</span>
+    </Typography>
+  </Box>
+  
+  <Tabs 
+    value={currentPage} 
+    onChange={(e, val) => {
+      // Prevent switching the state page if they clicked the external GitHub tab
+      if (val !== 'github') {
+        setCurrentPage(val);
+      }
+    }} 
+    textColor="inherit" 
+    indicatorColor="primary"
+    sx={{
+      '& .MuiTabs-indicator': { bgcolor: '#38bdf8', height: 3 },
+      '& .MuiTab-root': { fontWeight: 700, fontSize: '14px', px: 3 }
+    }}
+  >
+    <Tab label="Plan Route" value="setup" icon={<AddIcon fontSize="small"/>} iconPosition="start" />
+    <Tab label="Active Tracking" value="active_trip" disabled={!tripResult} icon={<MapIcon fontSize="small"/>} iconPosition="start" />
+    <Tab label="Filing Archives" value="history" icon={<HistoryIcon fontSize="small"/>} iconPosition="start" />
+    
+    {/* NEW GITHUB TAB AS AN ANCHOR LINK */}
+    <Tab 
+      label="Review Codebase" 
+      value="github" 
+      icon={<GitHubIcon fontSize="small" sx={{ color: '#38bdf8' }} />} 
+      iconPosition="start"
+      component="a"
+      href="https://github.com/MaharshiShastri/Spotter-AI"
+      target="_blank"
+      rel="noopener noreferrer"
+      sx={{
+        color: '#94a3b8',
+        '&:hover': { color: '#38bdf8' }
+      }}
+    />
+  </Tabs>
 
-          {/* CODEBASE LINK NAVIGATION ACTION ENTRY */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Button 
-              variant="outlined" 
-              startIcon={<LocalShippingIcon />}
-              href="https://github.com/MaharshiShastri/Spotter-AI"
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ 
-                color: '#38bdf8', 
-                borderColor: '#38bdf8', 
-                fontWeight: 700, 
-                borderRadius: 2,
-                textTransform: 'none',
-                '&:hover': {
-                  bgcolor: 'rgba(56, 189, 248, 0.08)',
-                  borderColor: '#38bdf8'
-                }
-              }}
-            >
-              Review Codebase
-            </Button>
-
-            <Button variant="contained" color="info" startIcon={<AddIcon />} onClick={handleSetupNewTrip} sx={{ fontWeight: 700, borderRadius: 2, bgcolor: '#0284c7' }}>
-              Clear & Reset Form
-            </Button>
-          </Box>
-        </Toolbar>
+  {/* RESET BUTTON REMAPPING */}
+  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+    <Button 
+      variant="contained" 
+      color="info" 
+      startIcon={<AddIcon />} 
+      onClick={handleSetupNewTrip} 
+      sx={{ fontWeight: 700, borderRadius: 2, bgcolor: '#0284c7' }}
+    >
+      Clear & Reset Form
+    </Button>
+  </Box>
+</Toolbar>
       </AppBar>
 
       <Container maxWidth="xl" sx={{ mt: 5, pb: 8 }}>
