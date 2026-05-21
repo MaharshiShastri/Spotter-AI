@@ -21,7 +21,7 @@ import TripMap from './components/TripMap';
 import AddressAutocomplete from './components/AddressAutocomplete';
 
 // =========================================================================
-// SINGLE LINE SUB-COMPONENT ACTION BAR
+// SINGLE LINE SUB-COMPONENT ACTION BAR (HYDRATED WITH AUTOCOMPLETE)
 // =========================================================================
 function ActionControlBar({ onCalculate, onReset, onDetectLocation, geoLoading, formState, setFormState, loading }) {
   return (
@@ -43,39 +43,39 @@ function ActionControlBar({ onCalculate, onReset, onDetectLocation, geoLoading, 
         boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
       }}
     >
+      {/* 1. Origin Address with Autocomplete Option */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1.2 }}>
-        <TextField
+        <AddressAutocomplete
           label="Origin Address"
-          variant="outlined"
-          size="small"
-          fullWidth
           value={formState.current_location}
-          onChange={(e) => setFormState({ ...formState, current_location: e.target.value })}
+          onChange={(val) => setFormState(prev => ({ ...prev, current_location: val }))}
         />
-        <Button variant="outlined" color="primary" onClick={onDetectLocation} disabled={geoLoading} sx={{ height: 40, minWidth: 40, p: 0, borderRadius: 1.5 }}>
+        <Button 
+          variant="outlined" 
+          color="primary" 
+          onClick={onDetectLocation} 
+          disabled={geoLoading} 
+          sx={{ height: 40, minWidth: 40, p: 0, borderRadius: 1.5 }}
+        >
           {geoLoading ? <CircularProgress size={16} /> : <MyLocationIcon fontSize="small" />}
         </Button>
       </Box>
       
+      {/* 2. Pickup Cargo Terminal - Upgraded from basic TextField */}
       <Box sx={{ flex: 1 }}>
-        <TextField
+        <AddressAutocomplete
           label="Pickup Cargo Terminal"
-          variant="outlined"
-          size="small"
-          fullWidth
           value={formState.pickup_location}
-          onChange={(e) => setFormState({ ...formState, pickup_location: e.target.value })}
+          onChange={(val) => setFormState(prev => ({ ...prev, pickup_location: val }))}
         />
       </Box>
       
+      {/* 3. Delivery Destination - Upgraded from basic TextField */}
       <Box sx={{ flex: 1 }}>
-        <TextField
+        <AddressAutocomplete
           label="Delivery Destination"
-          variant="outlined"
-          size="small"
-          fullWidth
           value={formState.dropoff_location}
-          onChange={(e) => setFormState({ ...formState, dropoff_location: e.target.value })}
+          onChange={(val) => setFormState(prev => ({ ...prev, dropoff_location: val }))}
         />
       </Box>
 
@@ -147,7 +147,7 @@ export default function App() {
     pickup_location: '',
     dropoff_location: '',
     cycle_used: '',
-    start_time: '06:00' // Initial default setup configuration line
+    start_time: '06:00'
   };
 
   const [formData, setFormData] = useState(defaultFormState);
@@ -265,7 +265,7 @@ export default function App() {
           pickup_location: formData.pickup_location,
           dropoff_location: formData.dropoff_location,
           cycle_used: formData.cycle_used || '0',
-          start_time: formData.start_time || '06:00' // Transmits explicit user parameter configuration directly
+          start_time: formData.start_time || '06:00'
         }),
       });
       if (!response.ok) throw new Error('Failed to compute compliant route variables.');
@@ -285,7 +285,8 @@ export default function App() {
       setCurrentPage('active_trip'); 
     } catch (err) {
       setError(err.message);
-    } finaly {
+    } finally {
+      // FIXED TYPO HERE: Changed "finaly" to "finally"
       setLoading(false);
     }
   };
@@ -403,7 +404,7 @@ export default function App() {
 
       <Container maxWidth="xl" sx={{ mt: 5, pb: 8 }}>
         
-        {/* PAGE 1: RE-ENGINEERED TO EMBED THE HORIZONTAL CONTROL INPUT LINE */}
+        {/* PAGE 1 */}
         {currentPage === 'setup' && (
           <Box sx={{ width: '100%', mx: 'auto' }}>
             {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>}
@@ -420,7 +421,7 @@ export default function App() {
           </Box>
         )}
 
-        {/* PAGE 2: ACTIVE LOG SHEETS & LIVE MAP VIEW */}
+        {/* PAGE 2 */}
         {currentPage === 'active_trip' && tripResult && (
           <Grid container spacing={4}>
             <Grid item xs={12} md={8}>
@@ -530,7 +531,7 @@ export default function App() {
           </Grid>
         )}
 
-        {/* PAGE 3: HISTORICAL FILING CABINET LIST */}
+        {/* PAGE 3 */}
         {currentPage === 'history' && (
           <Box sx={{ maxWidth: 800, mx: 'auto' }}>
             {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>}
