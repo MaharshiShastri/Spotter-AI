@@ -12,43 +12,75 @@ from .models import Trip, ManualDriverLog
 
 def geocode_osm(address_string):
     if not address_string:
+        print("[Geocode API] Empty address string received.")
         return None
+        
     if "GPS:" in address_string:
         try:
             coords = address_string.replace("GPS:", "").strip().split(",")
             return float(coords[0]), float(coords[1])
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[Geocode API] Hardcoded GPS coordinate string split exception: {str(e)}")
 
     api_key = os.environ.get("MAPS_CO_API_KEY")
     if not api_key:
-        print("Warning: MAPS_CO_API_KEY missing from environment variables.")
+        print("[Geocode API] CRITICAL ERROR: MAPS_CO_API_KEY missing from environment variables.")
         return None
 
     try:
         url = f"https://geocode.maps.co/search?q={urllib.parse.quote(address_string)}&api_key={api_key}"
         headers = {'User-Agent': 'SpotterAI_Engine/2.0'}
         response = requests.get(url, headers=headers, timeout=45)
-        if response.ok and response.json():
-            payload = response.json()[0]
-            return float(payload['lat']), float(payload['lon'])
+        
+        if not response.ok:
+            print(f"[Geocode API] Request failed with Status Code {response.status_code}. Response: {response.text}")
+            return None
+            
+        payload = response.json()
+        if payload and len(payload) > 0:
+            return float(payload[0]['lat']), float(payload[0]['lon'])
+        else:
+            print(f"[Geocode API] Empty coordinates lookup result payload for string: '{address_string}'")
+            
     except Exception as e:
-        print(f"Maps.co Geocoding Exception: {str(e)}")
+        print(f"[Geocode API] Maps.co Geocoding Core Infrastructure Network Exception: {str(e)}")
     return None
 
 def calculate_osrm_distance(origin_coords, dest_coords):
+    """
+    Calculates operational mileage route using Maps.co Routing Matrix interface instead of native OSRM.
+    Ensures authorization tokens and custom platform User-Agents are securely attached to bypass 19h+ blocks.
+    """
     if not origin_coords or not dest_coords:
+        print(f"[Routing API] Invalid coordinate pairing detected. Origin: {origin_coords}, Dest: {dest_coords}")
         return 0.0
+
+    api_key = os.environ.get("MAPS_CO_API_KEY")
+    if not api_key:
+        print("[Routing API] CRITICAL ERROR: MAPS_CO_API_KEY missing from environment variables.")
+        return 0.0
+
     try:
-        url = f"http://router.project-osrm.org/route/v1/driving/{origin_coords[1]},{origin_coords[0]};{dest_coords[1]},{dest_coords[0]}?overview=false"
-        response = requests.get(url, timeout=45)
-        if response.ok:
-            payload = response.json()
-            if "routes" in payload and len(payload["routes"]) > 0:
-                meters_distance = payload["routes"][0]["distance"]
-                return round(meters_distance * 0.000621371, 1)
+        # Maps.co Routing format matches standard OSRM format: lon,lat;lon,lat
+        url = f"https://router.maps.co/route/v1/driving/{origin_coords[1]},{origin_coords[0]};{dest_coords[1]},{dest_coords[0]}?overview=false&api_key={api_key}"
+        headers = {'User-Agent': 'SpotterAI_Engine/2.0'}
+        
+        response = requests.get(url, headers=headers, timeout=45)
+        
+        if not response.ok:
+            print(f"[Routing API] Connection refused or blocked. Status Code: {response.status_code}. Details: {response.text}")
+            return 0.0
+            
+        payload = response.json()
+        if "routes" in payload and len(payload["routes"]) > 0:
+            # Distance returns in meters, convert to miles
+            meters_distance = payload["routes"][0]["distance"]
+            return round(meters_distance * 0.000621371, 1)
+        else:
+            print(f"[Routing API] Key 'routes' was absent or empty in payload response: {payload}")
+            
     except Exception as e:
-        print(f"OSRM Infrastructure Routing Network exception: {str(e)}")
+        print(f"[Routing API] Maps.co Routing Matrix Network Infrastructure Failure: {str(e)}")
     return 0.0
 
 @api_view(['POST'])
@@ -63,18 +95,20 @@ def calculate_trip_api(request):
     dropoff_loc = data.get('dropoff_location', '')
     cycle_used_raw = data.get('cycle_used', '0')
     
-    # NEW: Read explicit driver-selected start time parameter (Default fallback: 06:00)
     driver_start_time = data.get('start_time', '06:00')
     try:
         base_start = int(driver_start_time.split(':')[0])
-    except Exception:
+    except Exception as e:
+        print(f"[Trip Engine] Could not parse custom start hour '{driver_start_time}'. Defaulting to 6. Error: {str(e)}")
         base_start = 6
     
     try:
         cycle_used = float(cycle_used_raw) if cycle_used_raw else 0.0
-    except ValueError:
+    except ValueError as e:
+        print(f"[Trip Engine] Error formatting cycle value fallback, defaulting to 0.0. Error: {str(e)}")
         cycle_used = 0.0
     
+    # Process address inputs 
     current_point = geocode_osm(current_loc)
     pickup_point = geocode_osm(pickup_loc)
     dropoff_point = geocode_osm(dropoff_loc)
@@ -84,6 +118,7 @@ def calculate_trip_api(request):
     computed_total_miles = round(leg_one_miles + leg_two_miles, 1)
     
     if computed_total_miles <= 0:
+        print(f"[Trip Engine] WARNING: Routing resulted in 0.0 miles. Applying emergency route fallback (450.0 miles).")
         computed_total_miles = 450.0
 
     estimated_hours = round(computed_total_miles / 55.0, 1)
@@ -100,7 +135,7 @@ def calculate_trip_api(request):
         start_str = f"{base_start:02d}:00"
         driving_start_str = f"{(base_start + 1):02d}:00"
         
-        # 1. NEW: Calculate initial morning rest buffer from midnight to driver start time
+        # Calculate initial morning rest buffer from midnight to driver start time
         initial_rest_mins = base_start * 60
         day_initial_segments = []
         
@@ -112,7 +147,7 @@ def calculate_trip_api(request):
                 "remark": "Initial Off-Duty Rest Period"
             })
 
-        # 2. Append the calculated workload legs for the day
+        # Append the calculated workload legs for the day
         if day_driving_this_shift >= 11.0:
             route_segments = [
                 {"status": "ON_DUTY", "start": start_str, "duration_mins": 60, "remark": f"Pre-Trip Inspection for route to {dropoff_loc[:15]}"},
@@ -135,7 +170,6 @@ def calculate_trip_api(request):
                 {"status": "SLEEPER_BERTH", "start": f"{(slp_start_mins // 60) % 24:02d}:{slp_start_mins % 60:02d}", "duration_mins": 600, "remark": "Rest Cycle"}
             ]
             
-        # Combine the midnight anchor block with the rest of the operational segments
         logs_by_day[day_key] = day_initial_segments + route_segments
         day_counter += 1
 
@@ -174,7 +208,6 @@ def log_manual_status(request):
     remark = request.data.get('remark', '')
     trip_id = request.data.get('trip_id')
     
-    # NEW: Extract real operational metrics passed from front-end client components
     custom_start = request.data.get('start', '12:00')
     custom_duration = int(request.data.get('duration_mins', 30))
     
@@ -193,7 +226,6 @@ def log_manual_status(request):
                 if target_day not in current_timeline:
                     current_timeline[target_day] = []
                 
-                # FIX: Injected properties now pull explicitly from variables instead of sandboxed defaults
                 current_timeline[target_day].append({
                     "status": status_type,
                     "start": custom_start,
@@ -201,7 +233,6 @@ def log_manual_status(request):
                     "remark": f"[In-Cab Update] {remark}"
                 })
                 
-                # Keeps the graph rendering sequence continuous
                 current_timeline[target_day] = sorted(
                     current_timeline[target_day], 
                     key=lambda x: [int(num) for num in x['start'].split(':')]
@@ -210,7 +241,9 @@ def log_manual_status(request):
                 trip.timeline_data = current_timeline
             trip.save()
         except Trip.DoesNotExist:
-            pass
+            print(f"[Manual Log] Execution aborted. Target Trip ID {trip_id} does not exist.")
+        except Exception as e:
+            print(f"[Manual Log] Critical anomaly appending manual segment status: {str(e)}")
 
     return Response({"status": status_type, "time": f"{custom_start}:00", "remark": remark})
 
@@ -239,6 +272,7 @@ def delete_trip_api(request, trip_id):
         trip.delete()
         return Response({"success": True, "message": f"Trip {trip_id} purged successfully."}, status=status.HTTP_200_OK)
     except Trip.DoesNotExist:
+        print(f"[Delete API] Attempted removal failed. ID {trip_id} not found in DB.")
         return Response({"success": False, "message": "Trip log record not found."}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['POST'])
@@ -261,7 +295,7 @@ def groq_rag_chat(request):
                 for seg in segments:
                     if seg.get('status') == 'SLEEPER_BERTH':
                         total_sleep_mins += seg.get('duration_mins', 0)
-            db_context_string += f"   -> Logged Sleep Record for this Itinerary: {round(total_sleep_mins / 60, 1)} hours spent in SLEEPER_BERTH.\n"
+            db_context_string += f"    -> Logged Sleep Record for this Itinerary: {round(total_sleep_mins / 60, 1)} hours spent in SLEEPER_BERTH.\n"
 
     client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
     try:
@@ -276,7 +310,10 @@ def groq_rag_chat(request):
         )
         return Response({"reply": completion.choices[0].message.content})
     except Exception as e:
+        print(f"[Groq AI] Large Language Model inference interface error: {str(e)}")
         return Response({"reply": f"Groq contextual error: {str(e)}"}, status=500)
     finally:
-        try: client.close()
-        except: pass
+        try: 
+            client.close()
+        except Exception as e: 
+            print(f"[Groq AI] Secondary catch while trying to terminate client session context: {str(e)}")
