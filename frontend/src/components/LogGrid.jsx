@@ -156,7 +156,7 @@ export default function LogGrid({ dayLabel, logSegments }) {
           {logSegments && logSegments.map((segment, idx) => (
             <Grid key={idx} size={{ xs: 12, sm: 6, md: 4 }}>
               <Typography variant="caption" display="block" sx={{ color: '#666' }}>
-                <strong>{segment.start}</strong> ({segment.duration_mins}m) - <span style={{color: '#1976d2'}}>{segment.status}</span>: {segment.remark}
+                <strong>{segment.start}</strong> ({segment.duration_mins}m) - <span style={{color: '#1976d2'}}>{visualStatus(segment)}</span>: {segment.remark}
               </Typography>
             </Grid>
           ))}
