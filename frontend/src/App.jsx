@@ -669,7 +669,7 @@ export default function App() {
                 </Box>
               ))}
               {chatLoading && (
-                <Box={{ display: 'flex', alignItems: 'center', gap: 1, color: '#64748b', p: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#64748b', p: 1 }}>
                   <CircularProgress size={14} color="inherit" />
                   <Typography variant="caption" sx={{ fontSize: '11px' }}>Searching contextual indices...</Typography>
                 </Box>
