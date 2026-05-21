@@ -400,7 +400,7 @@ export default function App() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Button 
               variant="outlined" 
-              startIcon={<GitHubIcon />}
+              startIcon={<LocalShippingIcon />}
               href="https://github.com/MaharshiShastri/Spotter-AI"
               target="_blank"
               rel="noopener noreferrer"
