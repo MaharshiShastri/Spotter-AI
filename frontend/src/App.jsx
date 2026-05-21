@@ -285,8 +285,7 @@ export default function App() {
       setCurrentPage('active_trip'); 
     } catch (err) {
       setError(err.message);
-    } finally {
-      // FIXED TYPO HERE: Changed "finaly" to "finally"
+    } finaly {
       setLoading(false);
     }
   };
@@ -365,7 +364,7 @@ export default function App() {
       }
     } catch (err) {
       setChatMessages(prev => [...prev, { role: 'assistant', text: 'Error connecting to processing nodes.' }]);
-    } finally {
+    } finaly {
       setChatLoading(false);
     }
   };
@@ -432,10 +431,34 @@ export default function App() {
               )}
               
               <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
-                <Paper variant="outlined" sx={{ flex: 1, p: 2, textAlign: 'center', borderRadius: 3, bgcolor: '#f0f9ff', borderColor: '#bae6fd' }}>
-                  <Typography variant="caption" sx={{ color: '#0369a1', fontWeight: 800 }}>MAPPED RUNNING DISTANCE</Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 800, color: '#0369a1' }}>{tripResult.distance_miles} mi</Typography>
+                {/* UPGRADED DISTANCE CONTAINER PANEL FOR GEOMAP FAILURE STRINGS */}
+                <Paper 
+                  variant="outlined" 
+                  sx={{ 
+                    flex: 1.5, 
+                    p: 2, 
+                    textAlign: 'center', 
+                    borderRadius: 3, 
+                    bgcolor: typeof tripResult.distance_miles === 'string' && tripResult.distance_miles.includes('-1') ? '#fef2f2' : '#f0f9ff', 
+                    borderColor: typeof tripResult.distance_miles === 'string' && tripResult.distance_miles.includes('-1') ? '#fca5a5' : '#bae6fd' 
+                  }}
+                >
+                  <Typography variant="caption" sx={{ color: typeof tripResult.distance_miles === 'string' && tripResult.distance_miles.includes('-1') ? '#991b1b' : '#0369a1', fontWeight: 800 }}>
+                    MAPPED RUNNING DISTANCE
+                  </Typography>
+                  <Typography 
+                    variant={typeof tripResult.distance_miles === 'string' && tripResult.distance_miles.includes('-1') ? "subtitle2" : "h4"} 
+                    sx={{ 
+                      fontWeight: 800, 
+                      color: typeof tripResult.distance_miles === 'string' && tripResult.distance_miles.includes('-1') ? '#ef4444' : '#0369a1',
+                      mt: 0.5,
+                      lineHeight: 1.4
+                    }}
+                  >
+                    {typeof tripResult.distance_miles === 'number' ? `${tripResult.distance_miles} mi` : tripResult.distance_miles}
+                  </Typography>
                 </Paper>
+
                 <Paper variant="outlined" sx={{ flex: 1, p: 2, textAlign: 'center', borderRadius: 3, bgcolor: '#f0fdf4', borderColor: '#bbf7d0' }}>
                   <Typography variant="caption" sx={{ color: '#166534', fontWeight: 800 }}>PROJECTED COMPLIANT DURATION</Typography>
                   <Typography variant="h4" sx={{ fontWeight: 800, color: '#166534' }}>{tripResult.estimated_driving_time_hours} hrs</Typography>
@@ -576,7 +599,7 @@ export default function App() {
                         } sx={{ py: 2 }}>
                           <ListItemText 
                             primary={<Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{trip.pickup ? trip.pickup.split(',')[0] : 'Unknown'} → {trip.dropoff ? trip.dropoff.split(',')[0] : 'Destination'}</Typography>}
-                            secondary={`Distance Record ID [${trip.id}]: ${trip.distance || 0} miles total`}
+                            secondary={`Distance Record ID [${trip.id}]: {trip.distance || 0} miles total`}
                           />
                         </ListItem>
                       </CardActionArea>
